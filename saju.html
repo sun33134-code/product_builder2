@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>사주팔자 분석기</title>
+<style>
+:root {
+  --wood: #2E7D32; --fire: #C62828; --earth: #E65100; --metal: #546E7A; --water: #1565C0;
+  --bg: #FFF8F0; --card: #FFFFFF; --text: #3C2415; --accent: #8B1A1A; --gold: #B8860B;
+  --border: #E0D5C8;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: var(--bg); color: var(--text); line-height:1.6; }
+.container { max-width:800px; margin:0 auto; padding:20px; }
+header { text-align:center; padding:40px 0 30px; }
+header h1 { font-size:2.2em; color:var(--accent); margin-bottom:4px; }
+header h1 span { font-size:0.5em; color:var(--gold); display:block; margin-top:4px; letter-spacing:6px; }
+header p { color:#888; font-size:0.95em; }
+.form-card { background:var(--card); border-radius:12px; padding:28px; box-shadow:0 2px 12px rgba(0,0,0,0.06); border:1px solid var(--border); margin-bottom:24px; }
+.form-row { display:flex; gap:12px; flex-wrap:wrap; align-items:end; }
+.form-group { flex:1; min-width:100px; }
+.form-group label { display:block; font-size:0.85em; color:#888; margin-bottom:4px; font-weight:500; }
+.form-group select, .form-group input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:1em; background:#FAFAFA; color:var(--text); }
+.form-group select:focus, .form-group input:focus { outline:none; border-color:var(--accent); background:#FFF; }
+.btn { background:var(--accent); color:#FFF; border:none; padding:11px 32px; border-radius:8px; font-size:1em; cursor:pointer; font-weight:600; transition:background 0.2s; white-space:nowrap; }
+.btn:hover { background:#A52020; }
+#results { display:none; }
+.section { background:var(--card); border-radius:12px; padding:24px; box-shadow:0 2px 12px rgba(0,0,0,0.06); border:1px solid var(--border); margin-bottom:20px; }
+.section h2 { font-size:1.15em; color:var(--accent); margin-bottom:16px; padding-bottom:8px; border-bottom:2px solid var(--border); }
+.section h2 span.hanja { font-weight:400; color:var(--gold); font-size:0.85em; margin-left:6px; }
+/* Pillar table */
+.pillar-table { display:flex; justify-content:center; gap:0; }
+.pillar { text-align:center; min-width:90px; border:1px solid var(--border); }
+.pillar .label { background:#F5F0EA; padding:6px; font-size:0.85em; font-weight:600; color:#888; border-bottom:1px solid var(--border); }
+.pillar .stem, .pillar .branch { padding:14px 8px; font-size:1.8em; font-weight:700; }
+.pillar .stem { border-bottom:1px solid var(--border); }
+.pillar .sub { font-size:0.38em; display:block; font-weight:400; color:#999; margin-top:2px; }
+.pillar .ilgan-marker { background:var(--accent); color:#FFF; }
+.pillar .ilgan-marker .sub { color:#ffcdd2; }
+.el-wood { color:var(--wood); } .el-fire { color:var(--fire); } .el-earth { color:var(--earth); } .el-metal { color:var(--metal); } .el-water { color:var(--water); }
+/* 오행 chart */
+.ohaeng-chart { margin:12px 0; }
+.ohaeng-row { display:flex; align-items:center; margin-bottom:8px; gap:8px; }
+.ohaeng-label { width:60px; font-weight:600; font-size:0.95em; text-align:right; }
+.ohaeng-bar-bg { flex:1; background:#F0EBE3; border-radius:6px; height:26px; overflow:hidden; }
+.ohaeng-bar { height:100%; border-radius:6px; transition:width 0.6s ease; display:flex; align-items:center; padding-left:8px; }
+.ohaeng-bar span { color:#FFF; font-size:0.8em; font-weight:600; text-shadow:0 1px 2px rgba(0,0,0,0.3); }
+.ohaeng-count { width:24px; font-size:0.9em; color:#888; }
+/* 십신 */
+.sipsin-table { width:100%; border-collapse:collapse; }
+.sipsin-table th, .sipsin-table td { padding:8px 10px; text-align:center; border:1px solid var(--border); font-size:0.9em; }
+.sipsin-table th { background:#F5F0EA; font-weight:600; color:#888; }
+/* 대운 */
+.daeun-flow { display:flex; gap:0; overflow-x:auto; padding-bottom:8px; }
+.daeun-item { text-align:center; min-width:72px; border:1px solid var(--border); flex-shrink:0; }
+.daeun-item .age { background:#F5F0EA; padding:4px 6px; font-size:0.8em; color:#888; border-bottom:1px solid var(--border); }
+.daeun-item .stem2, .daeun-item .branch2 { padding:8px 4px; font-size:1.2em; font-weight:700; }
+.daeun-item .stem2 { border-bottom:1px solid var(--border); }
+/* 운세 */
+.fortune-area { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; }
+.fortune-card { background:#FAF6F1; border-radius:8px; padding:14px; border:1px solid var(--border); }
+.fortune-card h4 { font-size:0.95em; color:var(--accent); margin-bottom:6px; }
+.fortune-card p { font-size:0.88em; color:#555; }
+.personality-box { background:#FAF6F1; border-radius:8px; padding:16px; border-left:4px solid var(--gold); margin:8px 0; }
+.personality-box p { font-size:0.92em; color:#555; }
+.analysis-text { font-size:0.9em; color:#555; margin-top:10px; line-height:1.7; }
+.footer { text-align:center; padding:30px 0 20px; color:#bbb; font-size:0.8em; }
+@media (max-width:600px) {
+  .form-row { flex-direction:column; }
+  .form-group { min-width:auto; }
+  .fortune-area { grid-template-columns:1fr !important; }
+  .pillar { min-width:70px; }
+  .pillar .stem, .pillar .branch { font-size:1.4em; padding:10px 4px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>사주팔자<span>四 柱 八 字</span></h1>
+    <p>생년월일시를 입력하여 사주명식을 분석합니다</p>
+  </header>
+  <div class="form-card">
+    <div class="form-row">
+      <div class="form-group"><label>출생년도</label><input type="number" id="year" min="1924" max="2025" value="1990"></div>
+      <div class="form-group"><label>월</label><select id="month"></select></div>
+      <div class="form-group"><label>일</label><select id="day"></select></div>
+      <div class="form-group"><label>시(時)</label><select id="hour"></select></div>
+      <div class="form-group"><label>성별</label><select id="gender"><option value="M">남성</option><option value="F">여성</option></select></div>
+      <div class="form-group"><label>&nbsp;</label><button class="btn" type="button" onclick="analyze()">분석하기</button></div>
+    </div>
+  </div>
+  <div id="results">
+    <div class="section" id="sec-pillars"><h2>사주 명식 <span class="hanja">四柱命式</span></h2><div id="pillarContent"></div></div>
+    <div class="section" id="sec-personality"><h2>일간 분석 <span class="hanja">日干分析</span></h2><div id="personalityContent"></div></div>
+    <div class="section" id="sec-ohaeng"><h2>오행 분포 <span class="hanja">五行分布</span></h2><div id="ohaengContent"></div></div>
+    <div class="section" id="sec-sipsin"><h2>십신 분석 <span class="hanja">十神分析</span></h2><div id="sipsinContent"></div></div>
+    <div class="section" id="sec-daeun"><h2>대운 <span class="hanja">大運</span></h2><div id="daeunContent"></div></div>
+    <div class="section" id="sec-fortune-last"><h2>2025 을사년 운세 <span class="hanja">乙巳年運勢</span></h2><div id="fortuneLastContent"></div></div>
+    <div class="section" id="sec-fortune-this"><h2>2026 병오년 운세 <span class="hanja">丙午年運勢</span></h2><div id="fortuneThisContent"></div></div>
+    <div class="section" id="sec-fortune-today"><h2>오늘의 운세 <span class="hanja">今日運勢</span></h2><div id="fortuneTodayContent"></div></div>
+  </div>
+  <div class="footer">본 사주 분석은 참고용이며 실제 운명을 보장하지 않습니다.</div>
+</div>
+<script>
+// === Constants ===
+const 천간 = ['갑','을','병','정','무','기','경','신','임','계'];
+const 천간한자 = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const 지지 = ['자','축','인','묘','진','사','오','미','신','유','술','해'];
+const 지지한자 = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+const 오행 = ['목','화','토','금','수'];
+const 오행한자 = ['木','火','土','金','水'];
+const 오행색 = ['var(--wood)','var(--fire)','var(--earth)','var(--metal)','var(--water)'];
+const 오행class = ['el-wood','el-fire','el-earth','el-metal','el-water'];
+const 간오행 = [0,0,1,1,2,2,3,3,4,4]; // 천간→오행 index
+const 지오행 = [4,2,0,0,2,1,1,2,3,3,2,4]; // 지지→오행 index (primary)
+const 십신명 = ['비견','겁재','식신','상관','편재','정재','편관','정관','편인','정인'];
+
+const 지장간 = [
+  [9],       // 자: 계
+  [5,9,7],   // 축: 기,계,신
+  [0,2,4],   // 인: 갑,병,무
+  [1],       // 묘: 을
+  [4,1,9],   // 진: 무,을,계
+  [2,6,4],   // 사: 병,경,무
+  [3,5],     // 오: 정,기
+  [5,3,1],   // 미: 기,정,을
+  [6,8,4],   // 신: 경,임,무
+  [7],       // 유: 신
+  [4,7,3],   // 술: 무,신,정
+  [8,0]      // 해: 임,갑
+];
+
+const 시labels = [
+  '자시 (23:00~01:00)','축시 (01:00~03:00)','인시 (03:00~05:00)','묘시 (05:00~07:00)',
+  '진시 (07:00~09:00)','사시 (09:00~11:00)','오시 (11:00~13:00)','미시 (13:00~15:00)',
+  '신시 (15:00~17:00)','유시 (17:00~19:00)','술시 (19:00~21:00)','해시 (21:00~23:00)'
+];
+
+// 절기 boundaries: [calendarMonth, day] for each 사주 month
+// Index 0=인월, 1=묘월, ... 11=축월
+const 절기월 = [2,3,4,5,6,7,8,9,10,11,12,1];
+const 절기일 = [4,6,5,6,6,7,8,8,8,7,7,6];
+// 사주 month branch indices: 인(2),묘(3),...해(11),자(0),축(1)
+const 월지index = [2,3,4,5,6,7,8,9,10,11,0,1];
+
+const 일간성격 = [
+  '갑목(甲木)은 큰 나무와 같습니다. 곧고 정직하며 리더십이 강하고, 어려운 상황에서도 굽히지 않는 강인한 의지를 지닙니다.',
+  '을목(乙木)은 풀이나 덩굴과 같습니다. 유연하고 적응력이 뛰어나며, 외유내강의 기질로 협력과 조화를 중시합니다.',
+  '병화(丙火)는 태양과 같습니다. 밝고 열정적이며 솔직하고 대범한 기질로, 따뜻한 마음으로 주변에 에너지를 줍니다.',
+  '정화(丁火)는 촛불이나 등불과 같습니다. 은은하고 섬세하며 예리한 직관력을 지니고, 깊은 사고로 본질을 꿰뚫어 봅니다.',
+  '무토(戊土)는 큰 산이나 대지와 같습니다. 듬직하고 포용력이 있으며, 책임감이 강하여 주변의 중심이 됩니다.',
+  '기토(己土)는 비옥한 농경지와 같습니다. 자상하고 헌신적이며 실용적인 성향으로, 꼼꼼하게 내실을 다집니다.',
+  '경금(庚金)은 강철이나 바위와 같습니다. 강인하고 결단력이 있으며, 의리를 중시하고 도전정신이 넘칩니다.',
+  '신금(辛金)은 보석이나 귀금속과 같습니다. 세련되고 감각적이며, 자기만의 확고한 기준으로 완벽을 추구합니다.',
+  '임수(壬水)는 큰 바다나 강과 같습니다. 넓은 도량과 지혜를 지니며, 진취적이고 포용력이 큰 자유로운 영혼입니다.',
+  '계수(癸水)는 이슬이나 빗물과 같습니다. 섬세하고 직관적이며, 조용하지만 끈기 있게 학문과 예술에 재능을 보입니다.'
+];
+
+// === Init Form ===
+(function initForm() {
+  const mSel = document.getElementById('month');
+  for (let i = 1; i <= 12; i++) mSel.innerHTML += `<option value="${i}">${i}월</option>`;
+  const dSel = document.getElementById('day');
+  for (let i = 1; i <= 31; i++) dSel.innerHTML += `<option value="${i}">${i}일</option>`;
+  const hSel = document.getElementById('hour');
+  시labels.forEach((l, i) => hSel.innerHTML += `<option value="${i}">${l}</option>`);
+})();
+
+// === Utility ===
+function getJDN(y, m, d) {
+  let a = Math.floor((14 - m) / 12);
+  let yy = y + 4800 - a;
+  let mm = m + 12 * a - 3;
+  return d + Math.floor((153 * mm + 2) / 5) + 365 * yy + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 32045;
+}
+
+function getSajuMonthIdx(month, day) {
+  // Returns 0=인월 .. 11=축월
+  const bounds = [
+    [1,6,11],[2,4,0],[3,6,1],[4,5,2],[5,6,3],[6,6,4],
+    [7,7,5],[8,8,6],[9,8,7],[10,8,8],[11,7,9],[12,7,10]
+  ]; // [calMonth, calDay, sajuMonthIdx]
+  let idx = 10; // default: 자월 (before Jan 6)
+  for (let i = bounds.length - 1; i >= 0; i--) {
+    if (month > bounds[i][0] || (month === bounds[i][0] && day >= bounds[i][1])) {
+      idx = bounds[i][2];
+      break;
+    }
+  }
+  return idx;
+}
+
+function getSajuYear(year, month, day) {
+  // Before 입춘 (Feb 4), use previous year
+  if (month < 2 || (month === 2 && day < 4)) return year - 1;
+  return year;
+}
+
+function stemEl(si) { return 간오행[si]; }
+function branchEl(bi) { return 지오행[bi]; }
+function elClass(elIdx) { return 오행class[elIdx]; }
+function stemClass(si) { return elClass(stemEl(si)); }
+function branchClass(bi) { return elClass(branchEl(bi)); }
+
+// === Core Calculation ===
+function calcSaju(year, month, day, hourBranch) {
+  const sajuYear = getSajuYear(year, month, day);
+  const sajuMonthIdx = getSajuMonthIdx(month, day);
+
+  // Year pillar
+  const yearStem = ((sajuYear - 4) % 10 + 10) % 10;
+  const yearBranch = ((sajuYear - 4) % 12 + 12) % 12;
+
+  // Month pillar
+  const monthBranch = 월지index[sajuMonthIdx];
+  const monthStem = ((yearStem % 5) * 2 + 2 + sajuMonthIdx) % 10;
+
+  // Day pillar
+  const jdn = getJDN(year, month, day);
+  const dayStem = (jdn + 9) % 10;
+  const dayBranch = (jdn + 1) % 12;
+
+  // Hour pillar
+  const hourStem = ((dayStem % 5) * 2 + hourBranch) % 10;
+
+  return {
+    yearStem, yearBranch, monthStem, monthBranch,
+    dayStem, dayBranch, hourStem, hourBranch,
+    sajuYear, sajuMonthIdx
+  };
+}
+
+// === 십신 Calculation ===
+function getSipsin(dayStemIdx, targetStemIdx) {
+  const meEl = stemEl(dayStemIdx);
+  const tEl = stemEl(targetStemIdx);
+  const meYY = dayStemIdx % 2;
+  const tYY = targetStemIdx % 2;
+  const sameYY = meYY === tYY;
+
+  const diff = (tEl - meEl + 5) % 5;
+  // diff: 0=same, 1=I produce, 2=I control, 3=controls me, 4=produces me
+  const map = [
+    [0, 1], // same: 비견(0)/겁재(1)
+    [2, 3], // I produce: 식신(2)/상관(3)
+    [4, 5], // I control: 편재(4)/정재(5)
+    [6, 7], // controls me: 편관(6)/정관(7)
+    [8, 9], // produces me: 편인(8)/정인(9)
+  ];
+  return map[diff][sameYY ? 0 : 1];
+}
+
+// === 오행 Distribution ===
+function calcOhaeng(saju) {
+  const counts = [0, 0, 0, 0, 0];
+  const stems = [saju.yearStem, saju.monthStem, saju.dayStem, saju.hourStem];
+  const branches = [saju.yearBranch, saju.monthBranch, saju.dayBranch, saju.hourBranch];
+  stems.forEach(s => counts[stemEl(s)]++);
+  branches.forEach(b => counts[branchEl(b)]++);
+  return counts;
+}
+
+// === 대운 Calculation ===
+function calcDaeun(saju, gender, year, month, day) {
+  const yearYY = saju.yearStem % 2; // 0=양, 1=음
+  const isMale = gender === 'M';
+  const isForward = (yearYY === 0 && isMale) || (yearYY === 1 && !isMale);
+
+  // Calculate start age
+  let targetIdx;
+  if (isForward) {
+    targetIdx = (saju.sajuMonthIdx + 1) % 12;
+  } else {
+    targetIdx = saju.sajuMonthIdx;
+  }
+  const tMonth = 절기월[targetIdx];
+  const tDay = 절기일[targetIdx];
+
+  let tYear = year;
+  if (isForward) {
+    // next 절기
+    if (tMonth < month || (tMonth === month && tDay <= day)) {
+      tYear = year + 1;
+    }
+    // handle 축월 case (Jan next year)
+    if (tMonth === 1 && month >= 2) tYear = year + 1;
+  } else {
+    // current month's 절기 (previous to birth)
+    if (tMonth > month || (tMonth === month && tDay > day)) {
+      tYear = year - 1;
+    }
+  }
+
+  const jdnBirth = getJDN(year, month, day);
+  const jdnTarget = getJDN(tYear, tMonth, tDay);
+  const daysDiff = Math.abs(jdnTarget - jdnBirth);
+  let startAge = Math.round(daysDiff / 3);
+  if (startAge < 1) startAge = 1;
+
+  // Generate 8 대운
+  const periods = [];
+  for (let i = 1; i <= 8; i++) {
+    let stem, branch;
+    if (isForward) {
+      stem = (saju.monthStem + i) % 10;
+      branch = (saju.monthBranch + i) % 12;
+    } else {
+      stem = ((saju.monthStem - i) % 10 + 10) % 10;
+      branch = ((saju.monthBranch - i) % 12 + 12) % 12;
+    }
+    periods.push({
+      stem, branch,
+      startAge: startAge + (i - 1) * 10,
+      endAge: startAge + i * 10 - 1
+    });
+  }
+  return { startAge, isForward, periods };
+}
+
+// === Display Functions ===
+function renderPillars(saju) {
+  const cols = [
+    { label: '시주(時柱)', s: saju.hourStem, b: saju.hourBranch, isDay: false },
+    { label: '일주(日柱)', s: saju.dayStem, b: saju.dayBranch, isDay: true },
+    { label: '월주(月柱)', s: saju.monthStem, b: saju.monthBranch, isDay: false },
+    { label: '년주(年柱)', s: saju.yearStem, b: saju.yearBranch, isDay: false },
+  ];
+  // Display right to left (년 월 일 시) in traditional order
+  const ordered = cols.reverse();
+  let html = '<div class="pillar-table">';
+  ordered.forEach(c => {
+    const markerClass = c.isDay ? ' ilgan-marker' : '';
+    html += `<div class="pillar">
+      <div class="label">${c.label}</div>
+      <div class="stem${markerClass}"><span class="${c.isDay ? '' : stemClass(c.s)}">${천간[c.s]}</span><span class="sub">${천간한자[c.s]} ${c.isDay ? '(일간)' : ''}</span></div>
+      <div class="branch"><span class="${branchClass(c.b)}">${지지[c.b]}</span><span class="sub">${지지한자[c.b]}</span></div>
+    </div>`;
+  });
+  html += '</div>';
+  document.getElementById('pillarContent').innerHTML = html;
+}
+
+function renderPersonality(saju) {
+  const ds = saju.dayStem;
+  document.getElementById('personalityContent').innerHTML =
+    `<div class="personality-box"><p><strong class="${stemClass(ds)}">${천간[ds]}${오행[stemEl(ds)]}(${천간한자[ds]}${오행한자[stemEl(ds)]})</strong> 일간</p><p style="margin-top:8px">${일간성격[ds]}</p></div>`;
+}
+
+function renderOhaeng(counts) {
+  const max = Math.max(...counts, 1);
+  let html = '<div class="ohaeng-chart">';
+  counts.forEach((c, i) => {
+    const pct = (c / 8) * 100;
+    html += `<div class="ohaeng-row">
+      <div class="ohaeng-label ${오행class[i]}">${오행[i]}(${오행한자[i]})</div>
+      <div class="ohaeng-bar-bg"><div class="ohaeng-bar" style="width:${pct}%;background:${오행색[i]}"><span>${c}</span></div></div>
+      <div class="ohaeng-count">${c}/8</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // Analysis
+  const total = counts.reduce((a, b) => a + b, 0);
+  let strong = [], weak = [], missing = [];
+  counts.forEach((c, i) => {
+    if (c >= 3) strong.push(오행[i]);
+    else if (c === 0) missing.push(오행[i]);
+    else if (c === 1) weak.push(오행[i]);
+  });
+  let analysis = '<div class="analysis-text">';
+  if (strong.length) analysis += `<strong>${strong.join(', ')}</strong>이(가) 강합니다. `;
+  if (missing.length) analysis += `<strong>${missing.join(', ')}</strong>이(가) 없어 보완이 필요합니다. `;
+  if (weak.length) analysis += `<strong>${weak.join(', ')}</strong>이(가) 부족합니다. `;
+  if (!strong.length && !missing.length) analysis += '오행이 비교적 균형 잡힌 사주입니다.';
+  analysis += '</div>';
+  html += analysis;
+  document.getElementById('ohaengContent').innerHTML = html;
+}
+
+function renderSipsin(saju) {
+  const ds = saju.dayStem;
+  const pillars = [
+    { name: '년주', stem: saju.yearStem, branch: saju.yearBranch },
+    { name: '월주', stem: saju.monthStem, branch: saju.monthBranch },
+    { name: '일주', stem: saju.dayStem, branch: saju.dayBranch },
+    { name: '시주', stem: saju.hourStem, branch: saju.hourBranch },
+  ];
+
+  let html = '<table class="sipsin-table"><tr><th></th><th>년주</th><th>월주</th><th>일주</th><th>시주</th></tr>';
+
+  // 천간 십신
+  html += '<tr><th>천간</th>';
+  pillars.forEach((p, i) => {
+    if (i === 2) { html += '<td style="background:#FFF3E0;font-weight:600">일간(나)</td>'; return; }
+    const ss = getSipsin(ds, p.stem);
+    html += `<td>${십신명[ss]}<br><small class="${stemClass(p.stem)}">${천간[p.stem]}${오행한자[stemEl(p.stem)]}</small></td>`;
+  });
+  html += '</tr>';
+
+  // 지지 십신 (use 지장간 main stem)
+  html += '<tr><th>지지</th>';
+  pillars.forEach((p) => {
+    const mainJijanggan = 지장간[p.branch][0]; // primary hidden stem
+    const ss = getSipsin(ds, mainJijanggan);
+    html += `<td>${십신명[ss]}<br><small class="${branchClass(p.branch)}">${지지[p.branch]}${오행한자[branchEl(p.branch)]}</small></td>`;
+  });
+  html += '</tr></table>';
+
+  // 십신 요약 (가장 많은 십신 1개만 표시)
+  const sipsinCounts = {};
+  pillars.forEach((p, i) => {
+    if (i !== 2) {
+      const ss = getSipsin(ds, p.stem);
+      sipsinCounts[십신명[ss]] = (sipsinCounts[십신명[ss]] || 0) + 1;
+    }
+    const ms = 지장간[p.branch][0];
+    const ss2 = getSipsin(ds, ms);
+    sipsinCounts[십신명[ss2]] = (sipsinCounts[십신명[ss2]] || 0) + 1;
+  });
+  const sorted = Object.entries(sipsinCounts).sort((a, b) => b[1] - a[1]);
+  if (sorted.length) {
+    html += `<div class="analysis-text" style="margin-top:10px">주요 십신: <strong>${sorted[0][0]}</strong>(${sorted[0][1]}개)${sorted.length > 1 ? `, ${sorted[1][0]}(${sorted[1][1]}개)` : ''}</div>`;
+  }
+
+  document.getElementById('sipsinContent').innerHTML = html;
+}
+
+function renderDaeun(daeun, saju) {
+  const ds = saju.dayStem;
+  let html = '<div class="daeun-flow">';
+  const currentAge = 2026 - parseInt(document.getElementById('year').value);
+  daeun.periods.forEach(p => {
+    const isCurrent = currentAge >= p.startAge && currentAge <= p.endAge;
+    html += `<div class="daeun-item" style="${isCurrent ? 'background:#FFF3E0;' : ''}">
+      <div class="age">${p.startAge}~${p.endAge}세</div>
+      <div class="stem2"><span class="${stemClass(p.stem)}">${천간[p.stem]}</span></div>
+      <div class="branch2"><span class="${branchClass(p.branch)}">${지지[p.branch]}</span></div>
+    </div>`;
+  });
+  html += '</div>';
+
+  let currentDaeun = null;
+  daeun.periods.forEach(p => { if (currentAge >= p.startAge && currentAge <= p.endAge) currentDaeun = p; });
+  if (currentDaeun) {
+    const ss = getSipsin(ds, currentDaeun.stem);
+    html += `<div class="analysis-text" style="margin-top:10px">현재 만 ${currentAge}세 — <strong>${천간[currentDaeun.stem]}${지지[currentDaeun.branch]} 대운</strong>(${십신명[ss]})</div>`;
+  }
+
+  document.getElementById('daeunContent').innerHTML = html;
+}
+
+// === 운세 공통 데이터 ===
+const 운세총평 = {
+  0: '동료나 경쟁자가 늘어나는 해입니다. 자신의 입지를 확고히 하고 독자적인 역량을 키우세요. 협력과 경쟁의 균형이 중요합니다.',
+  1: '변화와 도전의 해입니다. 예상치 못한 지출이 있을 수 있으나, 이를 통해 새로운 기회를 만들 수 있습니다. 유연한 대처가 필요합니다.',
+  2: '재능과 능력을 발휘할 기회가 많은 해입니다. 자기표현과 창작 활동에 유리하며, 여유로운 마음가짐이 행운을 가져옵니다.',
+  3: '창의력과 표현력이 빛나는 해입니다. 기존 틀을 벗어난 새로운 시도가 좋은 결과를 가져옵니다. 다만 언행에 주의가 필요합니다.',
+  4: '재물운이 활발한 해입니다. 다양한 곳에서 수입이 들어올 수 있으며, 투자나 사업 확장의 기회가 생깁니다. 과욕은 금물입니다.',
+  5: '안정적인 수입과 재물운이 기대되는 해입니다. 성실하게 노력한 만큼 결실을 맺습니다. 저축과 재테크에 관심을 기울이세요.',
+  6: '직장이나 사회적 지위에 변화가 있을 수 있는 해입니다. 도전적인 상황이 오지만 이를 통해 성장합니다. 건강 관리에 신경 쓰세요.',
+  7: '사회적 인정과 승진의 기회가 있는 해입니다. 규율과 원칙을 지키면 좋은 결과를 얻습니다. 책임감 있는 행동이 빛을 발합니다.',
+  8: '학문이나 자기계발에 좋은 해입니다. 새로운 기술이나 지식을 습득하기에 유리하며, 독창적인 아이디어가 빛납니다.',
+  9: '귀인의 도움과 학업운이 좋은 해입니다. 윗사람이나 멘토의 조언에 귀 기울이세요. 자격증 취득이나 학업에 유리합니다.'
+};
+
+const 재물운 = {
+  0: '재물 변동이 크지 않으나 동료와의 금전 거래는 피하세요.',
+  1: '급작스러운 지출에 대비하세요. 보험이나 비상금 확보가 중요합니다.',
+  2: '부수입이나 부업을 통한 추가 수입이 기대됩니다.',
+  3: '재능을 활용한 수입 창출이 가능합니다. 창작 활동이 유리합니다.',
+  4: '다양한 재물 기회가 찾아옵니다. 분산 투자가 좋습니다.',
+  5: '안정적 수입이 유지됩니다. 장기적 재테크를 시작하기 좋습니다.',
+  6: '예기치 않은 지출이 있을 수 있으나 극복 가능합니다.',
+  7: '직장 수입이 안정적이며 보너스나 승급이 기대됩니다.',
+  8: '자기투자에 비용이 들지만 장기적으로 이득입니다.',
+  9: '윗사람의 도움으로 재물운이 상승합니다.'
+};
+
+const 건강운 = {
+  0: '과로에 주의하세요. 적절한 휴식과 운동이 필요합니다.',
+  1: '스트레스 관리가 중요합니다. 명상이나 요가가 도움됩니다.',
+  2: '소화기 건강에 신경 쓰세요. 규칙적인 식사가 중요합니다.',
+  3: '심혈관 건강에 주의하세요. 정기검진을 받으세요.',
+  4: '활동량이 늘어 체력 소모가 큽니다. 영양 섭취에 신경 쓰세요.',
+  5: '전반적으로 건강한 해입니다. 꾸준한 운동 습관을 유지하세요.',
+  6: '간과 근육 건강에 주의가 필요합니다. 무리하지 마세요.',
+  7: '규칙적인 생활 리듬을 유지하면 건강합니다.',
+  8: '수면의 질을 높이세요. 충분한 휴식이 회복력을 높입니다.',
+  9: '정신 건강이 좋습니다. 여행이나 문화 활동이 활력을 줍니다.'
+};
+
+const 대인관계 = {
+  0: '동료와의 관계가 중요해집니다. 신뢰를 쌓는 노력이 필요합니다.',
+  1: '인간관계에 변동이 있을 수 있습니다. 진정한 관계를 구별하세요.',
+  2: '사교 활동이 활발해지며 좋은 인연을 만납니다.',
+  3: '솔직한 표현이 관계를 개선합니다. 소통에 힘쓰세요.',
+  4: '폭넓은 인맥 형성에 유리한 해입니다. 모임에 적극 참여하세요.',
+  5: '신뢰할 수 있는 동반자를 만날 수 있습니다. 진심을 보이세요.',
+  6: '직장 내 관계에 변화가 있습니다. 리더십을 발휘할 기회입니다.',
+  7: '사회적 명망이 높아집니다. 공적인 자리에서 빛을 발합니다.',
+  8: '학문적 동료나 스승과의 인연이 깊어집니다.',
+  9: '귀인을 만나는 해입니다. 겸손한 태도가 기회를 가져옵니다.'
+};
+
+const 직업운 = [
+  '현재 위치를 지키며 내실을 다지세요.',
+  '변화를 두려워하지 말고 새로운 도전을 하세요.',
+  '재능을 살린 직업 활동이 좋은 결과를 냅니다.',
+  '창의적인 프로젝트에 참여하면 좋습니다.',
+  '사업 확장이나 새로운 분야 진출이 유리합니다.',
+  '안정적인 직장생활이 유지됩니다.',
+  '승진이나 보직 변경의 기회가 있습니다.',
+  '공직이나 관리직에서 좋은 성과를 냅니다.',
+  '연구, 개발 분야에서 성과가 기대됩니다.',
+  '교육이나 상담 분야에서 빛을 발합니다.'
+];
+
+// === 작년 운세: 2025 을사년 (간략) ===
+function renderFortuneLastYear(saju) {
+  const ds = saju.dayStem;
+  // 2025 = 을사(乙巳). 천간 을=1, 지지 사=5
+  const yStem = 1; // 을
+  const yBranch = 5; // 사
+  const ss = getSipsin(ds, yStem);
+
+  let html = `<p class="analysis-text">2025년 <strong class="el-wood">을사(乙巳)</strong>년 — 일간 <strong class="${stemClass(ds)}">${천간[ds]}${오행한자[stemEl(ds)]}</strong>에게 을목(乙木)은 <strong>${십신명[ss]}</strong></p>`;
+  html += `<div class="personality-box" style="margin:10px 0"><p>${운세총평[ss]}</p></div>`;
+  html += '<div class="analysis-text" style="font-size:0.88em;color:#777">';
+  html += `재물: ${재물운[ss]} / 직업: ${직업운[ss]}<br>`;
+  html += `건강: ${건강운[ss]} / 대인: ${대인관계[ss]}`;
+  html += '</div>';
+
+  document.getElementById('fortuneLastContent').innerHTML = html;
+}
+
+// === 올해 운세: 2026 병오년 (자세) ===
+function renderFortuneThisYear(saju) {
+  const ds = saju.dayStem;
+  // 2026 = 병오(丙午). 천간 병=2, 지지 오=6
+  const yStem = 2; // 병
+  const yBranch = 6; // 오
+  const ssStem = getSipsin(ds, yStem);
+
+  let html = `<p class="analysis-text">2026년은 <strong class="el-fire">병오(丙午)</strong>년으로 화(火)의 기운이 매우 강한 해입니다.</p>`;
+  html += `<p class="analysis-text">일간 <strong class="${stemClass(ds)}">${천간[ds]}${오행한자[stemEl(ds)]}</strong>에게 병화(丙火)는 <strong>${십신명[ssStem]}</strong>에 해당합니다.</p>`;
+  html += `<div class="personality-box" style="margin:14px 0"><p>${운세총평[ssStem]}</p></div>`;
+  html += '<div class="fortune-area">';
+  html += `<div class="fortune-card"><h4>💰 재물운</h4><p>${재물운[ssStem]}</p></div>`;
+  html += `<div class="fortune-card"><h4>💪 건강운</h4><p>${건강운[ssStem]}</p></div>`;
+  html += `<div class="fortune-card"><h4>🤝 대인관계</h4><p>${대인관계[ssStem]}</p></div>`;
+  html += `<div class="fortune-card"><h4>💼 직업운</h4><p>${직업운[ssStem]}</p></div>`;
+  html += '</div>';
+
+  // 월별 운세 간략 표 (1~12월)
+  html += '<h3 style="font-size:1em;color:var(--accent);margin-top:20px;margin-bottom:10px">월별 운세</h3>';
+  html += '<table class="sipsin-table"><tr><th>월</th><th>간지</th><th>십신</th><th>키워드</th></tr>';
+  const 월별키워드 = {
+    0: '자립·경쟁', 1: '변화·돌파', 2: '표현·재능', 3: '창의·혁신',
+    4: '재물·투자', 5: '안정·저축', 6: '도전·성장', 7: '명예·승진',
+    8: '학습·탐구', 9: '귀인·지혜'
+  };
+  for (let m = 1; m <= 12; m++) {
+    // 2026년 각 월의 천간지지 계산 (인월 시작)
+    // 2026년 연간: 병(2). 월간 = (연간%5)*2 + 2 + 사주월인덱스
+    const sajuMonthIdx = getSajuMonthIdx(m, 15); // 월 중순 기준
+    const mBranch = 월지index[sajuMonthIdx];
+    // 2026 사주년: 입춘 후이므로 yearStem=2
+    const mStem = ((2 % 5) * 2 + 2 + sajuMonthIdx) % 10;
+    const mSS = getSipsin(ds, mStem);
+    html += `<tr><td>${m}월</td><td class="${stemClass(mStem)}">${천간[mStem]}${지지[mBranch]}</td><td>${십신명[mSS]}</td><td>${월별키워드[mSS]}</td></tr>`;
+  }
+  html += '</table>';
+
+  document.getElementById('fortuneThisContent').innerHTML = html;
+}
+
+// === 오늘의 운세 ===
+function renderFortuneToday(saju) {
+  const ds = saju.dayStem;
+  // 오늘 날짜의 일진 계산
+  const today = new Date();
+  const tY = today.getFullYear(), tM = today.getMonth() + 1, tD = today.getDate();
+  const jdn = getJDN(tY, tM, tD);
+  const todayStem = (jdn + 9) % 10;
+  const todayBranch = (jdn + 1) % 12;
+  const todaySS = getSipsin(ds, todayStem);
+
+  const 일운총평 = {
+    0: '자신의 페이스를 유지하는 것이 중요한 날입니다. 주변 경쟁에 휘둘리지 마세요.',
+    1: '예상치 못한 변화가 있을 수 있습니다. 유연하게 대처하면 오히려 기회가 됩니다.',
+    2: '자기표현에 유리한 날입니다. 아이디어를 적극적으로 제시해 보세요.',
+    3: '창의적인 에너지가 넘치는 날입니다. 새로운 시도에 좋으나 말조심이 필요합니다.',
+    4: '재물운이 좋은 날입니다. 쇼핑이나 투자 정보에 관심을 기울여 보세요.',
+    5: '안정적이고 평화로운 하루입니다. 꾸준한 노력이 빛을 발합니다.',
+    6: '도전적인 상황이 올 수 있으나 침착하게 대응하면 좋은 결과를 얻습니다.',
+    7: '사회적 활동에 유리한 날입니다. 공적인 만남이나 미팅에서 좋은 인상을 줍니다.',
+    8: '학습과 자기계발에 좋은 날입니다. 새로운 정보나 기술을 익히세요.',
+    9: '귀인의 도움이 있는 날입니다. 조언에 귀 기울이면 큰 도움이 됩니다.'
+  };
+
+  // 행운 정보 (십신 기반)
+  const 행운색 = ['녹색·흰색', '청색·은색', '빨강·주황', '보라·분홍', '노랑·금색', '베이지·크림', '검정·남색', '흰색·회색', '파랑·보라', '연두·민트'];
+  const 행운방위 = ['동쪽', '동남쪽', '남쪽', '남서쪽', '중앙', '서남쪽', '서쪽', '서북쪽', '북쪽', '북동쪽'];
+  const 행운숫자 = ['3, 8', '2, 7', '3, 4', '9, 0', '5, 6', '1, 6', '4, 9', '1, 2', '6, 7', '5, 0'];
+
+  const dateStr = `${tY}년 ${tM}월 ${tD}일`;
+
+  let html = `<p class="analysis-text">${dateStr} — 오늘의 일진: <strong class="${stemClass(todayStem)}">${천간[todayStem]}${지지[todayBranch]}(${천간한자[todayStem]}${지지한자[todayBranch]})</strong></p>`;
+  html += `<p class="analysis-text">일간 <strong class="${stemClass(ds)}">${천간[ds]}${오행한자[stemEl(ds)]}</strong> 기준 오늘은 <strong>${십신명[todaySS]}</strong>의 기운</p>`;
+  html += `<div class="personality-box" style="margin:10px 0"><p>${일운총평[todaySS]}</p></div>`;
+  html += '<div class="fortune-area" style="grid-template-columns:1fr 1fr 1fr">';
+  html += `<div class="fortune-card"><h4>🎨 행운의 색</h4><p>${행운색[todaySS]}</p></div>`;
+  html += `<div class="fortune-card"><h4>🧭 행운의 방위</h4><p>${행운방위[todaySS]}</p></div>`;
+  html += `<div class="fortune-card"><h4>🔢 행운의 숫자</h4><p>${행운숫자[todaySS]}</p></div>`;
+  html += '</div>';
+
+  document.getElementById('fortuneTodayContent').innerHTML = html;
+}
+
+// === Main ===
+function analyze() {
+  const year = parseInt(document.getElementById('year').value);
+  const month = parseInt(document.getElementById('month').value);
+  const day = parseInt(document.getElementById('day').value);
+  const hour = parseInt(document.getElementById('hour').value);
+  const gender = document.getElementById('gender').value;
+
+  // Validate date
+  const testDate = new Date(year, month - 1, day);
+  if (testDate.getMonth() !== month - 1 || testDate.getDate() !== day) {
+    alert('유효하지 않은 날짜입니다.');
+    return;
+  }
+  if (year < 1924 || year > 2025) {
+    alert('1924년부터 2025년까지 입력 가능합니다.');
+    return;
+  }
+
+  const saju = calcSaju(year, month, day, hour);
+  const ohaeng = calcOhaeng(saju);
+  const daeun = calcDaeun(saju, gender, year, month, day);
+
+  renderPillars(saju);
+  renderPersonality(saju);
+  renderOhaeng(ohaeng);
+  renderSipsin(saju);
+  renderDaeun(daeun, saju);
+  renderFortuneLastYear(saju);
+  renderFortuneThisYear(saju);
+  renderFortuneToday(saju);
+
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
